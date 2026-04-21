@@ -410,7 +410,7 @@ async def cancel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 # ==================== التشغيل ====================
 def main():
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(BOT_TOKEN).updater(None).build()
     task_conv = ConversationHandler(
         entry_points=[CommandHandler("newtask", new_task)],
         states={
