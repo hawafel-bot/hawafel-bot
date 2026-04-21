@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-# ============================================================
-#   بوت إدارة المهام - شركة حوافل الجمال للصناعة
-#   النسخة 2.0 - متوافق مع python-telegram-bot 22.x
-# ============================================================
+# نظام إدارة المهام - شركة حوافل الجمال للصناعة
+# متوافق مع python-telegram-bot 22.x و Python 3.13
 
 import os, json, logging
 from datetime import datetime
@@ -14,13 +12,11 @@ from telegram.ext import (
 
 BOT_TOKEN = "8664520842:AAFcTknBX_gpaE_Jn2eJ5EbcpvHdsEwroh8"
 DATA_FILE = "tasks_data.json"
-
 TASK_TITLE, TASK_DESC, TASK_PRIORITY, TASK_ASSIGN, TASK_DEADLINE, COMMENT_TEXT = range(6)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ==================== قاعدة البيانات ====================
 def load_data():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r", encoding="utf-8") as f:
@@ -59,8 +55,8 @@ def task_card(task, show_comments=False):
     deadline = f"\n⏰ الموعد: {task.get('deadline','غير محدد')}" if task.get('deadline') else ""
     assigned = ", ".join([f"@{a}" for a in task.get('assigned_usernames', [])]) or "غير محدد"
     txt = (
-        f"{p} *المهمة \#{task['id']}: {task['title']}*\n"
-        f"{s} الحالة: *{task['status']}*\n"
+        f"{p} المهمة #{task['id']}: {task['title']}\n"
+        f"{s} الحالة: {task['status']}\n"
         f"📋 {task['description']}\n"
         f"👥 المكلفون: {assigned}\n"
         f"📌 الأولوية: {task['priority']}{deadline}\n"
@@ -68,12 +64,11 @@ def task_card(task, show_comments=False):
         f"👤 المنشئ: @{task.get('creator_username','—')}"
     )
     if show_comments and task.get("comments"):
-        txt += "\n\n💬 *التعليقات:*"
+        txt += "\n\n💬 التعليقات:"
         for c in task["comments"]:
             txt += f"\n• @{c['username']} : {c['text']}"
     return txt
 
-# ==================== /start ====================
 async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     data = load_data()
@@ -89,25 +84,23 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     save_data(data)
     badge = "👑 مدير" if is_admin(user.id) else "👤 موظف"
     await update.message.reply_text(
-        f"🏢 *نظام مهام حوافل الجمال للصناعة*\n\n"
-        f"مرحباً {user.first_name}\! {badge}\n\n"
+        f"🏢 نظام مهام حوافل الجمال للصناعة\n\n"
+        f"مرحبا {user.first_name}! {badge}\n\n"
         f"➕ /newtask — إنشاء مهمة\n"
         f"📋 /tasks — مهامي\n"
-        f"📊 /alltasks — كل المهام \(مدير\)\n"
-        f"📈 /report — تقرير \(مدير\)\n"
+        f"📊 /alltasks — كل المهام (مدير)\n"
+        f"📈 /report — تقرير (مدير)\n"
         f"👥 /users — المستخدمون\n"
-        f"❓ /help — المساعدة",
-        parse_mode="MarkdownV2"
+        f"❓ /help — المساعدة"
     )
 
-# ==================== إنشاء مهمة ====================
 async def new_task(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("➕ *إنشاء مهمة جديدة*\n\nاكتب *عنوان المهمة:*", parse_mode="Markdown")
+    await update.message.reply_text("➕ إنشاء مهمة جديدة\n\nاكتب عنوان المهمة:")
     return TASK_TITLE
 
 async def task_title(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data["title"] = update.message.text
-    await update.message.reply_text("📝 اكتب *وصف المهمة* (أو أرسل - للتخطي):", parse_mode="Markdown")
+    await update.message.reply_text("📝 اكتب وصف المهمة (أو أرسل - للتخطي):")
     return TASK_DESC
 
 async def task_desc(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -117,7 +110,7 @@ async def task_desc(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         InlineKeyboardButton("🟡 عادي",   callback_data="pri_عادي"),
         InlineKeyboardButton("🟢 منخفض", callback_data="pri_منخفض"),
     ]]
-    await update.message.reply_text("📌 اختر *الأولوية:*", reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown")
+    await update.message.reply_text("📌 اختر الأولوية:", reply_markup=InlineKeyboardMarkup(kb))
     return TASK_PRIORITY
 
 async def task_priority(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -127,7 +120,7 @@ async def task_priority(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     data  = load_data()
     users = data["users"]
     if not users:
-        await query.edit_message_text("⚠️ لا يوجد مستخدمون!")
+        await query.edit_message_text("لا يوجد مستخدمون!")
         return ConversationHandler.END
     kb = []
     for uid, u in users.items():
@@ -135,8 +128,8 @@ async def task_priority(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     kb.append([InlineKeyboardButton("✅ تم الاختيار", callback_data="assign_done")])
     ctx.user_data["assigned"] = []
     await query.edit_message_text(
-        "👥 اختر *المكلفين* (يمكن اختيار أكثر من شخص)\nثم اضغط ✅ تم الاختيار",
-        reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown"
+        "👥 اختر المكلفين (يمكن اختيار أكثر من شخص)\nثم اضغط تم الاختيار",
+        reply_markup=InlineKeyboardMarkup(kb)
     )
     return TASK_ASSIGN
 
@@ -145,9 +138,9 @@ async def task_assign(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     if query.data == "assign_done":
         if not ctx.user_data.get("assigned"):
-            await query.answer("⚠️ اختر شخصاً على الأقل!", show_alert=True)
+            await query.answer("اختر شخصا على الاقل!", show_alert=True)
             return TASK_ASSIGN
-        await query.edit_message_text("⏰ اكتب *الموعد النهائي* (مثال: 2025-05-01)\nأو أرسل - للتخطي:", parse_mode="Markdown")
+        await query.edit_message_text("⏰ اكتب الموعد النهائي (مثال: 2025-05-01)\nأو أرسل - للتخطي:")
         return TASK_DEADLINE
     uid      = query.data.replace("assign_", "")
     assigned = ctx.user_data.get("assigned", [])
@@ -196,26 +189,22 @@ async def task_deadline(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         try:
             await ctx.bot.send_message(
                 chat_id=int(uid),
-                text=f"🔔 *مهمة جديدة مُسندة إليك!*\n\n{task_card(task)}",
-                reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown"
+                text=f"🔔 مهمة جديدة مسندة إليك!\n\n{task_card(task)}",
+                reply_markup=InlineKeyboardMarkup(kb)
             )
         except Exception as e:
             logger.warning(f"Cannot notify {uid}: {e}")
-    await update.message.reply_text(
-        f"✅ *تم إنشاء المهمة #{task['id']} بنجاح!*\n\n{task_card(task)}",
-        parse_mode="Markdown"
-    )
+    await update.message.reply_text(f"✅ تم إنشاء المهمة #{task['id']} بنجاح!\n\n{task_card(task)}")
     return ConversationHandler.END
 
-# ==================== مهامي ====================
 async def my_tasks(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     uid  = str(update.effective_user.id)
     data = load_data()
     my   = [t for t in data["tasks"] if uid in t.get("assigned_ids",[]) or t.get("creator_id")==uid]
     if not my:
-        await update.message.reply_text("📭 لا يوجد مهام مرتبطة بك.")
+        await update.message.reply_text("لا يوجد مهام مرتبطة بك.")
         return
-    await update.message.reply_text(f"📋 *مهامك ({len(my)} مهمة):*", parse_mode="Markdown")
+    await update.message.reply_text(f"📋 مهامك ({len(my)} مهمة):")
     for task in my[-10:]:
         kb = [[
             InlineKeyboardButton("⚙️ قيد التنفيذ", callback_data=f"status_{task['id']}_قيد التنفيذ"),
@@ -224,12 +213,11 @@ async def my_tasks(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("💬 تعليق",        callback_data=f"comment_{task['id']}"),
             InlineKeyboardButton("👁 تفاصيل",       callback_data=f"detail_{task['id']}"),
         ]]
-        await update.message.reply_text(task_card(task), reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown")
+        await update.message.reply_text(task_card(task), reply_markup=InlineKeyboardMarkup(kb))
 
-# ==================== كل المهام ====================
 async def all_tasks(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("⛔ للمديرين فقط.")
+        await update.message.reply_text("للمديرين فقط.")
         return
     data  = load_data()
     kb = [[
@@ -240,8 +228,8 @@ async def all_tasks(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         InlineKeyboardButton("📋 الكل",         callback_data="filter_all"),
     ]]
     await update.message.reply_text(
-        f"📊 *إجمالي المهام: {len(data['tasks'])}*\nاختر تصفية:",
-        reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown"
+        f"إجمالي المهام: {len(data['tasks'])}\nاختر تصفية:",
+        reply_markup=InlineKeyboardMarkup(kb)
     )
 
 async def filter_tasks(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -251,9 +239,9 @@ async def filter_tasks(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     data  = load_data()
     tasks = data["tasks"] if filt == "all" else [t for t in data["tasks"] if t["status"] == filt]
     if not tasks:
-        await query.edit_message_text("📭 لا يوجد مهام.")
+        await query.edit_message_text("لا يوجد مهام.")
         return
-    await query.edit_message_text(f"📋 *{len(tasks)} مهمة:*", parse_mode="Markdown")
+    await query.edit_message_text(f"{len(tasks)} مهمة:")
     for task in tasks[-10:]:
         kb = [[
             InlineKeyboardButton("⚙️ قيد التنفيذ", callback_data=f"status_{task['id']}_قيد التنفيذ"),
@@ -265,10 +253,9 @@ async def filter_tasks(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         ]]
         await ctx.bot.send_message(
             chat_id=query.message.chat_id,
-            text=task_card(task), reply_markup=InlineKeyboardMarkup(kb), parse_mode="Markdown"
+            text=task_card(task), reply_markup=InlineKeyboardMarkup(kb)
         )
 
-# ==================== تغيير الحالة ====================
 async def change_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -278,25 +265,21 @@ async def change_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     data  = load_data()
     task  = next((t for t in data["tasks"] if t["id"] == task_id), None)
     if not task:
-        await query.answer("⚠️ المهمة غير موجودة!", show_alert=True)
+        await query.answer("المهمة غير موجودة!", show_alert=True)
         return
     old_status     = task["status"]
     task["status"] = new_status
     save_data(data)
     user = update.effective_user
-    await query.edit_message_text(
-        f"{task_card(task)}\n\n✅ {old_status} ← *{new_status}*", parse_mode="Markdown"
-    )
+    await query.edit_message_text(f"{task_card(task)}\n\n✅ {old_status} ← {new_status}")
     if task["creator_id"] != str(user.id):
         try:
             await ctx.bot.send_message(
                 chat_id=int(task["creator_id"]),
-                text=f"🔔 *تحديث مهمة #{task_id}*\n@{user.username or user.full_name} غيّر الحالة إلى: *{new_status}*\nالمهمة: {task['title']}",
-                parse_mode="Markdown"
+                text=f"🔔 تحديث مهمة #{task_id}\n@{user.username or user.full_name} غير الحالة إلى: {new_status}\nالمهمة: {task['title']}"
             )
         except: pass
 
-# ==================== التعليقات ====================
 async def add_comment_start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -313,7 +296,7 @@ async def save_comment(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     data    = load_data()
     task    = next((t for t in data["tasks"] if t["id"] == task_id), None)
     if not task:
-        await update.message.reply_text("⚠️ المهمة غير موجودة!")
+        await update.message.reply_text("المهمة غير موجودة!")
         return ConversationHandler.END
     task["comments"].append({
         "username": user.username or user.full_name,
@@ -334,7 +317,6 @@ async def save_comment(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             except: pass
     return ConversationHandler.END
 
-# ==================== التفاصيل ====================
 async def task_detail(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -342,19 +324,18 @@ async def task_detail(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     data    = load_data()
     task    = next((t for t in data["tasks"] if t["id"] == task_id), None)
     if not task:
-        await query.answer("⚠️ غير موجودة!", show_alert=True)
+        await query.answer("غير موجودة!", show_alert=True)
         return
-    await query.edit_message_text(task_card(task, show_comments=True), parse_mode="Markdown")
+    await query.edit_message_text(task_card(task, show_comments=True))
 
-# ==================== التقرير ====================
 async def report(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("⛔ للمديرين فقط.")
+        await update.message.reply_text("للمديرين فقط.")
         return
     data  = load_data()
     tasks = data["tasks"]
     if not tasks:
-        await update.message.reply_text("📭 لا يوجد مهام.")
+        await update.message.reply_text("لا يوجد مهام.")
         return
     new_t  = sum(1 for t in tasks if t["status"]=="جديدة")
     in_p   = sum(1 for t in tasks if t["status"]=="قيد التنفيذ")
@@ -374,43 +355,43 @@ async def report(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         bar = "█"*(pct//10) + "░"*(10-pct//10)
         perf_txt += f"\n👤 {name}: {p['done']}/{p['total']} [{bar}] {pct}%"
     await update.message.reply_text(
-        f"📈 *تقرير المهام*\n━━━━━━━━━━━━\n"
-        f"📊 الإجمالي: *{len(tasks)}*\n"
-        f"🆕 جديدة: *{new_t}*\n⚙️ قيد التنفيذ: *{in_p}*\n"
-        f"✅ مكتملة: *{done}*\n❌ ملغاة: *{cancel}*\n🔴 عاجلة: *{urgent}*\n"
-        f"━━━━━━━━━━━━\n👥 *أداء الفريق:*{perf_txt}",
-        parse_mode="Markdown"
+        f"📈 تقرير المهام\n"
+        f"الإجمالي: {len(tasks)}\n"
+        f"جديدة: {new_t} | قيد التنفيذ: {in_p}\n"
+        f"مكتملة: {done} | ملغاة: {cancel}\n"
+        f"عاجلة: {urgent}\n"
+        f"أداء الفريق:{perf_txt}"
     )
 
-# ==================== المستخدمون ====================
 async def users_list(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     data  = load_data()
     users = data["users"]
     if not users:
-        await update.message.reply_text("👥 لا يوجد مستخدمون.\nاطلب من الفريق إرسال /start للبوت @Attar2035_bot")
+        await update.message.reply_text("لا يوجد مستخدمون.\nاطلب من الفريق إرسال /start للبوت @Attar2035_bot")
         return
-    txt = "👥 *المستخدمون المسجلون:*\n"
+    txt = "👥 المستخدمون المسجلون:\n"
     for uid, u in users.items():
         badge = "👑" if uid in data.get("admins",[]) else "👤"
         txt  += f"\n{badge} {u['name']} (@{u.get('username','—')})"
-    txt += f"\n\n💡 رابط التسجيل: @Attar2035_bot"
-    await update.message.reply_text(txt, parse_mode="Markdown")
+    txt += f"\n\nرابط التسجيل: @Attar2035_bot"
+    await update.message.reply_text(txt)
 
 async def help_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "❓ *المساعدة*\n\n"
-        "➕ /newtask — إنشاء مهمة\n📋 /tasks — مهامي\n"
-        "📊 /alltasks — كل المهام\n📈 /report — تقرير\n👥 /users — المستخدمون",
-        parse_mode="Markdown"
+        "المساعدة:\n\n"
+        "➕ /newtask — إنشاء مهمة\n"
+        "📋 /tasks — مهامي\n"
+        "📊 /alltasks — كل المهام\n"
+        "📈 /report — تقرير\n"
+        "👥 /users — المستخدمون"
     )
 
 async def cancel(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("❌ تم الإلغاء.")
+    await update.message.reply_text("تم الإلغاء.")
     return ConversationHandler.END
 
-# ==================== التشغيل ====================
 def main():
-    app = Application.builder().token(BOT_TOKEN).updater(None).build()
+    app = Application.builder().token(BOT_TOKEN).build()
     task_conv = ConversationHandler(
         entry_points=[CommandHandler("newtask", new_task)],
         states={
@@ -438,7 +419,7 @@ def main():
     app.add_handler(CallbackQueryHandler(change_status, pattern="^status_"))
     app.add_handler(CallbackQueryHandler(filter_tasks,  pattern="^filter_"))
     app.add_handler(CallbackQueryHandler(task_detail,   pattern="^detail_"))
-    print("🤖 بوت المهام يعمل... اضغط Ctrl+C للإيقاف")
+    print("بوت المهام يعمل...")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
